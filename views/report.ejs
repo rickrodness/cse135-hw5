@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= report.title %></title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <% if (!exportMode) { %>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <% } %>
+</head>
+<body>
+  <% if (!exportMode) { %>
+    <%- include('partials/nav') %>
+  <% } %>
+
+  <main class="content-container report-page">
+    <header class="report-header">
+      <h1><%= report.title %></h1>
+      <p><%= report.subtitle %></p>
+      <p class="muted">Generated: <%= new Date(generatedAt).toLocaleString() %></p>
+      <% if (readOnlyView) { %>
+        <p><span class="badge badge-readonly"><%= savedLabel %></span></p>
+      <% } %>
+      <% if (!exportMode && exportEndpoint) { %>
+        <form method="POST" action="<%= exportEndpoint %>">
+          <button type="submit" class="quick-link">Export PDF</button>
+        </form>
+      <% } %>
+    </header>
+
+    <section class="kpi-grid">
+      <% report.kpis.forEach((kpi) => { %>
+        <article class="kpi-card">
+          <p class="kpi-label"><%= kpi.label %></p>
+          <p class="kpi-value"><%= kpi.value %></p>
+          <p class="kpi-hint"><%= kpi.hint %></p>
+        </article>
+      <% }) %>
+    </section>
+
+    <section class="report-section">
+      <h2>Analyst Commentary</h2>
+      <ul class="commentary-list">
+        <% report.commentary.forEach((note) => { %>
+          <li><%= note %></li>
+        <% }) %>
+      </ul>
+    </section>
+
+    <% if (!exportMode) { %>
+      <section class="report-section chart-grid">
+        <% report.charts.forEach((chart) => { %>
+          <article class="chart-card">
+            <h3><%= chart.title %></h3>
+            <p class="muted"><%= chart.summary %></p>
+            <div class="chart-wrapper small">
+              <canvas id="<%= chart.id %>"></canvas>
+            </div>
+          </article>
+        <% }) %>
+      </section>
+
+      <noscript>
+        <section class="report-section">
+          <h2>Chart Fallback Summary</h2>
+          <p class="muted">Charts require JavaScript. Summary and table data remain available below.</p>
+        </section>
+      </noscript>
+    <% } else { %>
+      <section class="report-section">
+        <h2>Chart Summary (Export Mode)</h2>
+        <table class="events-table">
+          <thead>
+            <tr>
+              <th>Chart</th>
+              <th>Summary</th>
+              <th>Data Points</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% report.charts.forEach((chart) => { %>
+              <tr>
+                <td><%= chart.title %></td>
+                <td><%= chart.summary %></td>
+                <td><%= (chart.labels || []).length %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </section>
+    <% } %>
+
+    <section class="report-section">
+      <h2><%= report.table.title %></h2>
+      <% if (!report.table.rows || report.table.rows.length === 0) { %>
+        <p class="empty-message">No data available for this table.</p>
+      <% } else { %>
+        <table class="events-table">
+          <thead>
+            <tr>
+              <% report.table.columns.forEach((column) => { %>
+                <th><%= column.label %></th>
+              <% }) %>
+            </tr>
+          </thead>
+          <tbody>
+            <% report.table.rows.forEach((row) => { %>
+              <tr>
+                <% report.table.columns.forEach((column) => { %>
+                  <td><%= row[column.key] %></td>
+                <% }) %>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      <% } %>
+    </section>
+
+    <% if (report.secondaryTable) { %>
+      <section class="report-section">
+        <h2><%= report.secondaryTable.title %></h2>
+        <% if (!report.secondaryTable.rows || report.secondaryTable.rows.length === 0) { %>
+          <p class="empty-message">No data available for this table.</p>
+        <% } else { %>
+          <table class="events-table">
+            <thead>
+              <tr>
+                <% report.secondaryTable.columns.forEach((column) => { %>
+                  <th><%= column.label %></th>
+                <% }) %>
+              </tr>
+            </thead>
+            <tbody>
+              <% report.secondaryTable.rows.forEach((row) => { %>
+                <tr>
+                  <% report.secondaryTable.columns.forEach((column) => { %>
+                    <td><%= row[column.key] %></td>
+                  <% }) %>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        <% } %>
+      </section>
+    <% } %>
+  </main>
+
+  <% if (!exportMode) { %>
+    <script id="report-chart-data" type="application/json"><%- JSON.stringify(report.charts || []) %></script>
+    <script>
+      (function renderCharts() {
+        const dataElement = document.getElementById('report-chart-data');
+        if (!dataElement) return;
+
+        const charts = JSON.parse(dataElement.textContent || '[]');
+        charts.forEach((chart) => {
+          const canvas = document.getElementById(chart.id);
+          if (!canvas) return;
+
+          if (!chart.labels || chart.labels.length === 0) {
+            canvas.parentElement.innerHTML = '<p class="empty-message">No chart data available.</p>';
+            return;
+          }
+
+          new Chart(canvas, {
+            type: chart.type || 'bar',
+            data: {
+              labels: chart.labels,
+              datasets: [{
+                label: chart.datasetLabel || 'Value',
+                data: chart.values || [],
+                backgroundColor: chart.color || 'rgba(54, 162, 235, 0.7)',
+                borderColor: chart.color || 'rgba(54, 162, 235, 1)',
+                borderWidth: 1,
+                tension: chart.type === 'line' ? 0.2 : 0
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              scales: {
+                y: {
+                  beginAtZero: true,
+                  ticks: { precision: 0 }
+                }
+              }
+            }
+          });
+        });
+      })();
+    </script>
+  <% } %>
+</body>
+</html>

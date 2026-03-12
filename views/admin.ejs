@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Management</title>
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <%- include('partials/nav') %>
+
+  <main class="content-container admin-page">
+    <header class="report-header">
+      <h1>Admin User Management</h1>
+      <p>Create users, assign roles, toggle active status, and manage analyst section scopes.</p>
+    </header>
+
+    <% if (success) { %>
+      <p class="alert success"><%= success %></p>
+    <% } %>
+    <% if (error) { %>
+      <p class="alert error"><%= error %></p>
+    <% } %>
+
+    <section class="kpi-grid">
+      <article class="kpi-card">
+        <p class="kpi-label">Total Users</p>
+        <p class="kpi-value"><%= summary.totalUsers %></p>
+      </article>
+      <article class="kpi-card">
+        <p class="kpi-label">Active Users</p>
+        <p class="kpi-value"><%= summary.activeUsers %></p>
+      </article>
+      <article class="kpi-card">
+        <p class="kpi-label">Analysts</p>
+        <p class="kpi-value"><%= summary.analyst %></p>
+      </article>
+      <article class="kpi-card">
+        <p class="kpi-label">Viewers</p>
+        <p class="kpi-value"><%= summary.viewer %></p>
+      </article>
+    </section>
+
+    <section class="report-section">
+      <h2>Create User</h2>
+      <form method="POST" action="/admin/users" class="admin-form-grid">
+        <label>
+          Username
+          <input type="text" name="username" maxlength="64" required>
+        </label>
+        <label>
+          Display Name
+          <input type="text" name="display_name" maxlength="100" required>
+        </label>
+        <label>
+          Password
+          <input type="password" name="password" minlength="8" required>
+        </label>
+        <label>
+          Role
+          <select name="role" required>
+            <% roles.forEach((role) => { %>
+              <option value="<%= role %>"><%= role %></option>
+            <% }) %>
+          </select>
+        </label>
+        <label class="check-row">
+          <input type="checkbox" name="is_active" checked>
+          Active account
+        </label>
+        <div>
+          <p class="kpi-label">Analyst Sections</p>
+          <div class="section-checkboxes">
+            <% sectionOptions.forEach((slug) => { %>
+              <label class="check-row">
+                <input type="checkbox" name="sections" value="<%= slug %>">
+                <%= slug %>
+              </label>
+            <% }) %>
+          </div>
+        </div>
+        <div>
+          <button type="submit" class="quick-link">Create User</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="report-section">
+      <h2>Existing Users</h2>
+      <% if (!users || users.length === 0) { %>
+        <p class="empty-message">No users found.</p>
+      <% } else { %>
+        <div class="admin-user-list">
+          <% users.forEach((user) => { %>
+            <article class="admin-user-card">
+              <form method="POST" action="/admin/users/<%= user.id %>/update" class="admin-form-grid compact">
+                <p><strong><%= user.username %></strong></p>
+                <label>
+                  Display Name
+                  <input type="text" name="display_name" value="<%= user.displayName %>" maxlength="100" required>
+                </label>
+                <label>
+                  Role
+                  <select name="role" required>
+                    <% roles.forEach((role) => { %>
+                      <option value="<%= role %>" <%= role === user.role ? 'selected' : '' %>><%= role %></option>
+                    <% }) %>
+                  </select>
+                </label>
+                <label class="check-row">
+                  <input type="checkbox" name="is_active" <%= user.isActive ? 'checked' : '' %>>
+                  Active account
+                </label>
+                <div>
+                  <p class="kpi-label">Section Scope (analyst only)</p>
+                  <div class="section-checkboxes">
+                    <% sectionOptions.forEach((slug) => { %>
+                      <label class="check-row">
+                        <input type="checkbox" name="sections" value="<%= slug %>" <%= user.sections.includes(slug) ? 'checked' : '' %>>
+                        <%= slug %>
+                      </label>
+                    <% }) %>
+                  </div>
+                </div>
+                <p class="muted">Created: <%= new Date(user.createdAt).toLocaleString() %></p>
+                <div>
+                  <button type="submit" class="quick-link">Save Changes</button>
+                </div>
+              </form>
+            </article>
+          <% }) %>
+        </div>
+      <% } %>
+    </section>
+  </main>
+</body>
+</html>

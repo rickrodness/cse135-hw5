@@ -1,0 +1,18 @@
+<div class="top-nav">
+  <div class="top-nav-left">
+    <% (navLinks || []).forEach((link) => { %>
+      <a href="<%= link.href %>"><%= link.label %></a>
+    <% }) %>
+  </div>
+  <div class="top-nav-right">
+    <% if (currentUser) { %>
+      <span>
+        <strong><%= currentUser.displayName || currentUser.username %></strong>
+        (<%= currentUser.role %>)
+      </span>
+      <form action="/logout" method="POST" style="display:inline;">
+        <button type="submit" class="btn-logout">Logout</button>
+      </form>
+    <% } %>
+  </div>
+</div>

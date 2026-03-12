@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Events Table</title>
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <%- include('partials/nav') %>
+
+  <div class="content-container">
+    <p><strong>Latest 50 Events</strong></p>
+
+    <% if (!events || events.length === 0) { %>
+      <p class="empty-message">No events found.</p>
+    <% } else { %>
+      <table class="events-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Session ID</th>
+            <th>Event Type</th>
+            <th>Event Data</th>
+            <th>Created At</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% events.forEach((event) => { %>
+            <tr>
+              <td><%= event.id %></td>
+              <td><code><%= String(event.session_id || '').slice(0, 8) %>...</code></td>
+              <td><%= event.event_type %></td>
+              <td><small><code><%= String(typeof event.event_data === 'string' ? event.event_data : JSON.stringify(event.event_data || {})).slice(0, 80) %>...</code></small></td>
+              <td><small><%= new Date(event.created_at).toLocaleString() %></small></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    <% } %>
+  </div>
+</body>
+</html>

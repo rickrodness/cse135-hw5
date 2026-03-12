@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Event Charts</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <%- include('partials/nav') %>
+
+  <div class="content-container">
+    <div class="chart-wrapper">
+      <h3>Event Count by Type</h3>
+      <canvas id="eventTypeChart"></canvas>
+    </div>
+  </div>
+
+  <script id="chart-data" type="application/json"><%- JSON.stringify(chartData) %></script>
+
+  <script>
+    const chartDataElement = document.getElementById('chart-data');
+    const chartData = chartDataElement ? JSON.parse(chartDataElement.textContent || '{}') : { labels: [], counts: [] };
+    const labels = chartData.labels || [];
+    const counts = chartData.counts || [];
+
+    if (labels.length > 0) {
+      new Chart(document.getElementById('eventTypeChart'), {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Event count',
+            data: counts,
+            backgroundColor: 'rgba(54, 162, 235, 0.7)',
+            borderColor: 'rgba(54, 162, 235, 1)',
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: { precision: 0 }
+            }
+          }
+        }
+      });
+    } else {
+      document.querySelector('.chart-wrapper').innerHTML = '<p class="empty-message">No chart data available.</p>';
+    }
+  </script>
+</body>
+</html>

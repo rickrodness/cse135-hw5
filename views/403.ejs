@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>403 Forbidden</title>
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <%- include('partials/nav') %>
+
+  <div class="content-container">
+    <h1>403 Forbidden</h1>
+    <p><%= reason %></p>
+    <% if (username) { %>
+      <p>
+        Signed in as <strong><%= username %></strong>
+        <% if (role) { %>
+          (<%= role %>)
+        <% } %>
+      </p>
+    <% } %>
+    <p><a href="/dashboard">Return to dashboard</a></p>
+  </div>
+</body>
+</html>

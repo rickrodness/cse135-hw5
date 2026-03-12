@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard</title>
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <%- include('partials/nav') %>
+
+  <div class="dashboard-container">
+    <h1><%= dashboard.title %></h1>
+    <p><%= dashboard.subtitle %></p>
+
+    <div class="dashboard-meta-row">
+      <span class="badge"><%= dashboard.roleLabel %></span>
+      <span class="meta-item">Total Events: <strong><%= dashboard.totalEvents %></strong></span>
+      <% if (dashboard.readOnly) { %>
+        <span class="badge badge-readonly">Read-only access</span>
+      <% } %>
+    </div>
+
+    <% if (dashboard.adminLinks && dashboard.adminLinks.length > 0) { %>
+      <section class="dashboard-section">
+        <h2>System Administration</h2>
+        <div class="quick-links">
+          <% dashboard.adminLinks.forEach((link) => { %>
+            <a class="quick-link" href="<%= link.href %>"><%= link.label %></a>
+          <% }) %>
+        </div>
+      </section>
+    <% } %>
+
+    <% if (dashboard.accessibleSections && dashboard.accessibleSections.length > 0) { %>
+      <section class="dashboard-section">
+        <h2>Report Categories You Can Open</h2>
+        <div class="card-grid">
+          <% dashboard.accessibleSections.forEach((section) => { %>
+            <article class="dashboard-card">
+              <h3><%= section.title %></h3>
+              <p><%= section.description %></p>
+              <p><span class="badge"><%= section.slug %></span></p>
+              <a class="quick-link" href="<%= section.href %>">Open Category</a>
+            </article>
+          <% }) %>
+        </div>
+      </section>
+    <% } %>
+
+    <section class="dashboard-section">
+      <h2>Saved Reports</h2>
+      <p class="muted">Curated report snapshots intended for quick review.</p>
+      <div class="quick-links">
+        <% dashboard.savedLinks.forEach((link) => { %>
+          <a class="quick-link" href="<%= link.href %>"><%= link.label %></a>
+        <% }) %>
+      </div>
+    </section>
+
+    <% if (dashboard.utilityLinks && dashboard.utilityLinks.length > 0) { %>
+      <section class="dashboard-section">
+        <h2>Current Analytics Views</h2>
+        <div class="quick-links">
+          <% dashboard.utilityLinks.forEach((link) => { %>
+            <a class="quick-link" href="<%= link.href %>"><%= link.label %></a>
+          <% }) %>
+        </div>
+      </section>
+    <% } %>
+  </div>
+</body>
+</html>
