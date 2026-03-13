@@ -39,15 +39,6 @@
       <% }) %>
     </section>
 
-    <section class="report-section">
-      <h2>Analyst Commentary</h2>
-      <ul class="commentary-list">
-        <% report.commentary.forEach((note) => { %>
-          <li><%= note %></li>
-        <% }) %>
-      </ul>
-    </section>
-
     <% if (!exportMode) { %>
       <section class="report-section chart-grid">
         <% report.charts.forEach((chart) => { %>
@@ -90,6 +81,15 @@
         </table>
       </section>
     <% } %>
+
+    <section class="report-section">
+      <h2>Analyst Commentary</h2>
+      <ul class="commentary-list">
+        <% report.commentary.forEach((note) => { %>
+          <li><%= note %></li>
+        <% }) %>
+      </ul>
+    </section>
 
     <section class="report-section">
       <h2><%= report.table.title %></h2>

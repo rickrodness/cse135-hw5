@@ -17,6 +17,7 @@ Implemented outcomes:
 - Three polished report categories
 - Viewer-safe saved report views
 - Permission-aware PDF export flow
+- Session Journey (Replay Lite) investigative view
 - Super-admin user management
 - Styled 403 / 404 / 500 handling
 
@@ -46,6 +47,27 @@ Implemented outcomes:
 - `db/schema.sql` - HW5 schema
 - `db/seed.sql` - seeded demo users and initial data
 
+## AI Usage Disclosure
+
+AI tooling (GitHub Copilot / LLM assistance) was used during development as a support tool for:
+
+- Drafting and refactoring boilerplate route/view code
+- Reviewing role/permission flow for missed checks
+- Speeding up repetitive query/view wiring
+
+AI output was not accepted blindly. Final implementation, debugging, deployment, and verification decisions were manually reviewed and tested.
+
+Observed value:
+
+- Faster iteration on repetitive scaffolding
+- Better coverage for edge-case brainstorming
+
+Observed limitations:
+
+- Suggested patterns can miss assignment-specific constraints
+- Security and authorization assumptions must be manually validated
+- Generated code quality varies and still requires human QA
+
 ## Authentication + Authorization
 
 ### Roles
@@ -58,7 +80,7 @@ Implemented outcomes:
 - `analyst`
   - Access only assigned report sections
   - Export only assigned section reports
-  - Saved report access
+  - Saved report access for assigned sections
 
 - `viewer`
   - Read-only saved report access
@@ -130,6 +152,24 @@ Viewer-safe saved routes:
 
 These render curated read-only views while preserving role-based access control.
 
+## Session Journey (Replay Lite)
+
+Advanced behavior-analysis route:
+
+- `GET /reports/session-journey`
+
+What it provides:
+
+- Session picker from recent high-activity sessions
+- Ordered event timeline (time, event type, page, detail)
+- Summary KPIs (events, unique pages, duration, click/scroll/idle/leave counts)
+
+Access model:
+
+- Super admin: full access
+- Analyst: access only when scoped to `behavior`
+- Viewer: no access
+
 ## PDF Export System
 
 Exports are generated server-side from the shared report template in export mode.
@@ -192,6 +232,8 @@ mysql -h <DB_HOST> -P <DB_PORT> -u <DB_USER> -p <DB_NAME> < db/schema.sql
 mysql -h <DB_HOST> -P <DB_PORT> -u <DB_USER> -p <DB_NAME> < db/seed.sql
 ```
 
+Note: this repository's SQL files define the HW5 auth/scope/export tables (`users`, `user_sections`, `report_exports`). The analytics `events` table and collector pipeline are expected to come from prior homework infrastructure / deployed collector services.
+
 ### Environment Variables
 
 - `PORT`
@@ -213,6 +255,7 @@ This project uses Puppeteer for server-side PDF generation. On some hosts, Chrom
 - Export history UI is minimal; metadata exists in the database
 - Advanced filtering was intentionally limited to keep delivery stable
 - PDF export favors reliable KPI/table/commentary output over fragile chart screenshot capture
+- Session hardening settings are intentionally simple for class delivery and should be tightened for production-grade deployments
 
 ## Roadmap / Future Improvements
 

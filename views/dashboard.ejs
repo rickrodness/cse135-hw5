@@ -58,6 +58,18 @@
       </div>
     </section>
 
+    <% if (dashboard.advancedLinks && dashboard.advancedLinks.length > 0) { %>
+      <section class="dashboard-section">
+        <h2>Advanced Analytics</h2>
+        <p class="muted">Focused investigative views for deeper behavioral analysis.</p>
+        <div class="quick-links">
+          <% dashboard.advancedLinks.forEach((link) => { %>
+            <a class="quick-link" href="<%= link.href %>"><%= link.label %></a>
+          <% }) %>
+        </div>
+      </section>
+    <% } %>
+
     <% if (dashboard.utilityLinks && dashboard.utilityLinks.length > 0) { %>
       <section class="dashboard-section">
         <h2>Current Analytics Views</h2>

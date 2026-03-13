@@ -73,6 +73,28 @@ const SAVED_REPORT_LINKS = [
 
 const VALID_ROLES = ['super_admin', 'analyst', 'viewer'];
 const VALID_SECTION_SLUGS = Object.keys(SECTION_CATALOG);
+const SESSION_JOURNEY_EVENT_TYPES = [
+  'activity_click',
+  'activity_scroll',
+  'activity_keydown',
+  'activity_keyup',
+  'activity_idle',
+  'activity_leave',
+  'activity_enter',
+  'activity_mousemove'
+];
+
+function canAccessSessionJourney(user) {
+  if (!user) {
+    return false;
+  }
+
+  if (user.role === 'super_admin') {
+    return true;
+  }
+
+  return user.role === 'analyst' && (user.sections || []).includes('behavior');
+}
 
 function getAccessibleSections(user) {
   if (!user) {
@@ -104,6 +126,7 @@ function getNavLinks(user) {
       links.push({ label: section.title, href: section.href });
     });
     links.push({ label: 'Saved Reports', href: SAVED_REPORT_LINKS[0].href });
+    links.push({ label: 'Session Journey', href: '/reports/session-journey' });
     links.push({ label: 'Event Table', href: '/reports/table' });
     links.push({ label: 'Event Charts', href: '/reports/charts' });
     return links;
@@ -114,8 +137,9 @@ function getNavLinks(user) {
       links.push({ label: section.title, href: section.href });
     });
     links.push({ label: 'Saved Reports', href: SAVED_REPORT_LINKS[0].href });
-    links.push({ label: 'Event Table', href: '/reports/table' });
-    links.push({ label: 'Event Charts', href: '/reports/charts' });
+    if (canAccessSessionJourney(user)) {
+      links.push({ label: 'Session Journey', href: '/reports/session-journey' });
+    }
     return links;
   }
 
@@ -136,6 +160,7 @@ function buildDashboardViewModel(user, totalEvents) {
       accessibleSections,
       savedLinks: SAVED_REPORT_LINKS,
       adminLinks: [{ label: 'Open Admin Area', href: '/admin' }],
+      advancedLinks: [{ label: 'Session Journey (Replay Lite)', href: '/reports/session-journey' }],
       utilityLinks: [
         { label: 'Legacy Event Table', href: '/reports/table' },
         { label: 'Legacy Event Charts', href: '/reports/charts' }
@@ -144,6 +169,10 @@ function buildDashboardViewModel(user, totalEvents) {
   }
 
   if (user.role === 'analyst') {
+    const advancedLinks = canAccessSessionJourney(user)
+      ? [{ label: 'Session Journey (Replay Lite)', href: '/reports/session-journey' }]
+      : [];
+
     return {
       title: 'Your Assigned Analytics Areas',
       subtitle: 'Only report categories in your assigned scope are shown.',
@@ -153,10 +182,8 @@ function buildDashboardViewModel(user, totalEvents) {
       accessibleSections,
       savedLinks: SAVED_REPORT_LINKS,
       adminLinks: [],
-      utilityLinks: [
-        { label: 'Legacy Event Table', href: '/reports/table' },
-        { label: 'Legacy Event Charts', href: '/reports/charts' }
-      ]
+      advancedLinks,
+      utilityLinks: []
     };
   }
 
@@ -169,6 +196,7 @@ function buildDashboardViewModel(user, totalEvents) {
     accessibleSections: [],
     savedLinks: SAVED_REPORT_LINKS,
     adminLinks: [],
+    advancedLinks: [],
     utilityLinks: []
   };
 }
@@ -820,7 +848,21 @@ function canUserAccessReportSlug(user, reportSlug) {
   if (user.role === 'super_admin') return true;
 
   if (reportSlug.startsWith('saved:')) {
-    return user.role === 'viewer' || user.role === 'analyst';
+    const savedSlug = reportSlug.slice('saved:'.length);
+    const savedConfig = getSavedReportConfig(savedSlug);
+    if (!savedConfig) {
+      return false;
+    }
+
+    if (user.role === 'viewer') {
+      return true;
+    }
+
+    if (user.role !== 'analyst') {
+      return false;
+    }
+
+    return (user.sections || []).includes(savedConfig.sectionSlug);
   }
 
   if (user.role !== 'analyst') {
@@ -881,6 +923,137 @@ async function createExportRecord({ reportSlug, generatedByUserId, filename, fil
   );
 
   return result.insertId;
+}
+
+function normalizeEventData(eventData) {
+  if (!eventData) {
+    return {};
+  }
+
+  if (typeof eventData === 'object') {
+    return eventData;
+  }
+
+  if (typeof eventData === 'string') {
+    try {
+      return JSON.parse(eventData);
+    } catch (_err) {
+      return {};
+    }
+  }
+
+  return {};
+}
+
+function formatDurationMs(start, end) {
+  if (!start || !end) {
+    return 'N/A';
+  }
+
+  const durationMs = Math.max(0, end.getTime() - start.getTime());
+  const seconds = Math.round(durationMs / 1000);
+  if (seconds < 60) {
+    return `${seconds}s`;
+  }
+
+  const minutes = Math.floor(seconds / 60);
+  const remSeconds = seconds % 60;
+  return `${minutes}m ${remSeconds}s`;
+}
+
+async function buildSessionJourneyViewModel(selectedSessionId) {
+  const [sessionRows] = await pool.query(
+    `SELECT
+       session_id,
+       COUNT(*) AS event_count,
+       MIN(created_at) AS started_at,
+       MAX(created_at) AS ended_at
+     FROM events
+     WHERE session_id IS NOT NULL
+       AND event_type IN (${SESSION_JOURNEY_EVENT_TYPES.map(() => '?').join(', ')})
+     GROUP BY session_id
+     ORDER BY ended_at DESC
+     LIMIT 25`,
+    SESSION_JOURNEY_EVENT_TYPES
+  );
+
+  const sessions = sessionRows.map((row) => ({
+    sessionId: row.session_id,
+    shortSessionId: String(row.session_id).slice(0, 14),
+    eventCount: Number(row.event_count || 0),
+    startedAt: row.started_at,
+    endedAt: row.ended_at,
+    duration: formatDurationMs(new Date(row.started_at), new Date(row.ended_at))
+  }));
+
+  const chosenSession = selectedSessionId
+    ? sessions.find((session) => String(session.sessionId) === String(selectedSessionId))
+    : sessions[0] || null;
+
+  if (!chosenSession) {
+    return {
+      sessions,
+      selectedSession: null,
+      summary: null,
+      timeline: []
+    };
+  }
+
+  const [timelineRows] = await pool.query(
+    `SELECT id, session_id, event_type, event_data, created_at
+     FROM events
+     WHERE session_id = ?
+       AND event_type IN (${SESSION_JOURNEY_EVENT_TYPES.map(() => '?').join(', ')})
+     ORDER BY created_at ASC
+     LIMIT 250`,
+    [chosenSession.sessionId, ...SESSION_JOURNEY_EVENT_TYPES]
+  );
+
+  const eventTypeCounts = {
+    activity_click: 0,
+    activity_scroll: 0,
+    activity_idle: 0,
+    activity_leave: 0
+  };
+  const visitedPages = new Set();
+
+  const timeline = timelineRows.map((row, index) => {
+    const parsed = normalizeEventData(row.event_data);
+    const page = parsed.page || parsed.path || 'unknown';
+    const note = parsed.message || parsed.target || parsed.key || '';
+
+    if (eventTypeCounts[row.event_type] !== undefined) {
+      eventTypeCounts[row.event_type] += 1;
+    }
+    visitedPages.add(page);
+
+    return {
+      index: index + 1,
+      createdAt: new Date(row.created_at).toLocaleString(),
+      eventType: row.event_type,
+      page,
+      note: String(note).slice(0, 120)
+    };
+  });
+
+  const summary = {
+    totalEvents: timeline.length,
+    uniquePages: visitedPages.size,
+    clicks: eventTypeCounts.activity_click,
+    scrolls: eventTypeCounts.activity_scroll,
+    idles: eventTypeCounts.activity_idle,
+    leaves: eventTypeCounts.activity_leave,
+    duration: chosenSession.duration,
+    startedAt: chosenSession.startedAt ? new Date(chosenSession.startedAt).toLocaleString() : 'N/A',
+    endedAt: chosenSession.endedAt ? new Date(chosenSession.endedAt).toLocaleString() : 'N/A'
+  };
+
+  return {
+    sessions,
+    selectedSession: chosenSession,
+    summary,
+    timeline
+  };
 }
 
 app.get('/', (req, res) => {
@@ -959,7 +1132,7 @@ app.get('/dashboard', requireAuth, async (req, res) => {
   }
 });
 
-app.get('/reports/table', requireAuth, requireRole('analyst'), async (req, res) => {
+app.get('/reports/table', requireAuth, requireRole('super_admin'), async (req, res) => {
   try {
     const [events] = await pool.query(
       `SELECT id, session_id, event_type, event_data, created_at
@@ -978,7 +1151,7 @@ app.get('/reports/table', requireAuth, requireRole('analyst'), async (req, res) 
   }
 });
 
-app.get('/reports/charts', requireAuth, requireRole('analyst'), async (req, res) => {
+app.get('/reports/charts', requireAuth, requireRole('super_admin'), async (req, res) => {
   try {
     const [aggregated] = await pool.query(
       `SELECT event_type, COUNT(*) AS count
@@ -1056,6 +1229,19 @@ app.get('/reports/platform-health', requireAuth, requireRole('analyst'), require
   }
 });
 
+app.get('/reports/session-journey', requireAuth, requireRole('analyst'), requireSectionAccess('behavior'), async (req, res) => {
+  try {
+    const selectedSessionId = String(req.query.session_id || '').trim() || null;
+    const journey = await buildSessionJourneyViewModel(selectedSessionId);
+    return res.render('session_journey', {
+      journey
+    });
+  } catch (error) {
+    console.error('Error loading session journey:', error);
+    return renderServerError(req, res, 'Error loading session journey report');
+  }
+});
+
 app.get('/reports/saved/:slug', requireAuth, requireRole('viewer', 'analyst'), async (req, res) => {
   const config = getSavedReportConfig(req.params.slug);
   if (!config) {
@@ -1063,6 +1249,11 @@ app.get('/reports/saved/:slug', requireAuth, requireRole('viewer', 'analyst'), a
   }
 
   try {
+    const savedAccessSlug = `saved:${req.params.slug}`;
+    if (!canUserAccessReportSlug(req.session.user, savedAccessSlug)) {
+      return renderForbidden(req, res, 'You do not have permission to open this saved report.');
+    }
+
     const report = await config.builder();
     report.title = config.title;
     report.subtitle = `${report.subtitle} This is a curated read-only saved view.`;
@@ -1314,7 +1505,7 @@ app.use((err, req, res, next) => {
 });
 
 // Existing /api/events routes should remain unchanged in production backend.
-// This local HW4 scaffold intentionally focuses on new authenticated reporting pages.
+// This HW5 app focuses on authenticated reporting and analytics delivery.
 
 app.listen(PORT, () => {
   console.log(`HW5 reporting platform listening on :${PORT}`);

@@ -10,6 +10,13 @@ This file provides the fastest path to evaluate HW5 functionality.
 
 Use these seeded accounts.
 
+Role mapping for assignment wording:
+
+- `super admin` -> `super_admin`
+- `admin` (if interpreted separately in wording) -> handled by `super_admin` in this project
+- `reporter` -> `analyst`
+- read-only consumer -> `viewer`
+
 If unchanged from the provided seed file:
 
 - **Super Admin**
@@ -37,6 +44,7 @@ If these were changed locally or on deployment, replace them here before submiss
   - Access to admin management route
   - Can create/update users and section scopes
   - Can export all report categories
+  - Can access Session Journey (Replay Lite)
 
 - **Analyst (Performance only)**
   - Access to `/reports/performance`
@@ -91,6 +99,18 @@ Expected result:
 - Export succeeds
 - PDF opens through `/exports/:id`
 
+### 2b. Super Admin Session Journey (Extra Credit)
+
+Still as super admin, open:
+
+- `/reports/session-journey`
+
+Expected result:
+
+- Session selector is visible
+- Timeline table shows ordered behavior events for a selected session
+- Summary cards show event counts, unique pages, duration, and interaction mix
+
 ### 3. Analyst Scoped Access
 
 Log out, then log in as:
@@ -113,6 +133,15 @@ Then open:
 Expected result:
 
 - Styled 403 page
+
+Then open:
+
+- `/reports/session-journey`
+
+Expected result:
+
+- Allowed only if analyst has `behavior` scope
+- Otherwise styled 403 page
 
 ### 4. Viewer Read-Only Access
 
@@ -144,6 +173,21 @@ Expected result:
 - Styled 403 page
 
 This demonstrates roles, scope enforcement, polished reports, and export flow quickly.
+
+## Areas Of Concern (Accountability / Leniency)
+
+Most likely risk areas that may still contain defects:
+
+- Role/scope edge cases on direct URL access rather than nav-only access
+- Performance on larger event datasets due to JSON extraction queries
+- PDF export dependency on Puppeteer/Chromium runtime packages on the deployed host
+- Export access control correctness when multiple roles generate many files over time
+
+Architecture tradeoffs acknowledged:
+
+- Focus was placed on reliable RBAC/reporting flow over advanced filters and audit subsystems
+- Export history UX is intentionally minimal while export metadata is persisted server-side
+- Password reset/recovery and admin audit trail are out of scope for this assignment window
 
 ## Route Protection Expectations
 
@@ -191,4 +235,4 @@ This demonstrates roles, scope enforcement, polished reports, and export flow qu
 - Test `/admin` as admin.
 - Test `/reports/behavior` as `analyst_perf` and confirm 403.
 - Test `/reports/saved/performance-snapshot` as viewer.
-- Confirm both `README.md` and `GRADER.md` are in `HW5/`.
+- Confirm both `README.md` and `GRADER.md` are present in the repository root for turn-in.

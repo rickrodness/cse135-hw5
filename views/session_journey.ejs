@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Session Journey (Replay Lite)</title>
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <%- include('partials/nav') %>
+
+  <main class="content-container session-journey-page">
+    <header class="report-header">
+      <h1>Session Journey (Replay Lite)</h1>
+      <p>Reconstruct a session timeline from behavioral analytics events to inspect user flow, friction, and drop-off points.</p>
+    </header>
+
+    <section class="report-section">
+      <h2>Choose Session</h2>
+      <% if (!journey.sessions || journey.sessions.length === 0) { %>
+        <p class="empty-message">No session data found yet. Generate activity events and refresh.</p>
+      <% } else { %>
+        <form method="GET" action="/reports/session-journey" class="session-picker-form">
+          <label>
+            Session
+            <select name="session_id">
+              <% journey.sessions.forEach((session) => { %>
+                <option value="<%= session.sessionId %>" <%= journey.selectedSession && String(journey.selectedSession.sessionId) === String(session.sessionId) ? 'selected' : '' %>>
+                  <%= session.shortSessionId %>... | <%= session.eventCount %> events | <%= session.duration %>
+                </option>
+              <% }) %>
+            </select>
+          </label>
+          <button type="submit" class="quick-link">Load Journey</button>
+        </form>
+      <% } %>
+    </section>
+
+    <% if (journey.selectedSession && journey.summary) { %>
+      <section class="kpi-grid">
+        <article class="kpi-card">
+          <p class="kpi-label">Session</p>
+          <p class="kpi-value" style="font-size:18px"><%= journey.selectedSession.shortSessionId %>...</p>
+          <p class="kpi-hint">Selected journey identifier.</p>
+        </article>
+        <article class="kpi-card">
+          <p class="kpi-label">Total Events</p>
+          <p class="kpi-value"><%= journey.summary.totalEvents %></p>
+          <p class="kpi-hint">Timeline points in this replay view.</p>
+        </article>
+        <article class="kpi-card">
+          <p class="kpi-label">Unique Pages</p>
+          <p class="kpi-value"><%= journey.summary.uniquePages %></p>
+          <p class="kpi-hint">Distinct pages visited in this session.</p>
+        </article>
+        <article class="kpi-card">
+          <p class="kpi-label">Duration</p>
+          <p class="kpi-value"><%= journey.summary.duration %></p>
+          <p class="kpi-hint"><%= journey.summary.startedAt %> to <%= journey.summary.endedAt %></p>
+        </article>
+      </section>
+
+      <section class="report-section">
+        <h2>Interaction Summary</h2>
+        <div class="journey-summary-grid">
+          <article class="dashboard-card"><strong>Clicks:</strong> <%= journey.summary.clicks %></article>
+          <article class="dashboard-card"><strong>Scrolls:</strong> <%= journey.summary.scrolls %></article>
+          <article class="dashboard-card"><strong>Idle Events:</strong> <%= journey.summary.idles %></article>
+          <article class="dashboard-card"><strong>Leave Events:</strong> <%= journey.summary.leaves %></article>
+        </div>
+      </section>
+
+      <section class="report-section">
+        <h2>Ordered Event Timeline</h2>
+        <% if (!journey.timeline || journey.timeline.length === 0) { %>
+          <p class="empty-message">No timeline events found for this session.</p>
+        <% } else { %>
+          <table class="events-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Time</th>
+                <th>Event Type</th>
+                <th>Page</th>
+                <th>Detail</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% journey.timeline.forEach((event) => { %>
+                <tr>
+                  <td><%= event.index %></td>
+                  <td><%= event.createdAt %></td>
+                  <td><%= event.eventType %></td>
+                  <td><%= event.page %></td>
+                  <td><%= event.note || 'n/a' %></td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        <% } %>
+      </section>
+    <% } %>
+  </main>
+</body>
+</html>

@@ -387,6 +387,35 @@ body {
   color: #991b1b;
 }
 
+.session-journey-page {
+  margin-top: 16px;
+}
+
+.session-picker-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: end;
+}
+
+.session-picker-form label {
+  display: grid;
+  gap: 6px;
+  min-width: 320px;
+}
+
+.session-picker-form select {
+  padding: 8px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+}
+
+.journey-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
 @media print {
   body {
     background: #fff;
