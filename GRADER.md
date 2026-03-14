@@ -1,6 +1,6 @@
 # GRADER.md - CSE 135 HW5
 
-This file provides the fastest path to evaluate HW5 functionality.
+This file provides the fastest path to evaluate my HW5 functionality.
 
 ## Primary Grading URL
 
