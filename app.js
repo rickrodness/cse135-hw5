@@ -891,9 +891,21 @@ function renderReportTemplate(report, options = {}) {
 }
 
 async function generatePdfFromHtml(html, filePath) {
+  const chromeUserDataDir = path.join(__dirname, '.chrome-profile');
+  fs.mkdirSync(chromeUserDataDir, { recursive: true });
+
   const browser = await puppeteer.launch({
     headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox']
+    userDataDir: chromeUserDataDir,
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-crashpad',
+      '--disable-crash-reporter',
+      '--no-first-run',
+      '--no-zygote'
+    ]
   });
 
   try {
@@ -923,137 +935,6 @@ async function createExportRecord({ reportSlug, generatedByUserId, filename, fil
   );
 
   return result.insertId;
-}
-
-function normalizeEventData(eventData) {
-  if (!eventData) {
-    return {};
-  }
-
-  if (typeof eventData === 'object') {
-    return eventData;
-  }
-
-  if (typeof eventData === 'string') {
-    try {
-      return JSON.parse(eventData);
-    } catch (_err) {
-      return {};
-    }
-  }
-
-  return {};
-}
-
-function formatDurationMs(start, end) {
-  if (!start || !end) {
-    return 'N/A';
-  }
-
-  const durationMs = Math.max(0, end.getTime() - start.getTime());
-  const seconds = Math.round(durationMs / 1000);
-  if (seconds < 60) {
-    return `${seconds}s`;
-  }
-
-  const minutes = Math.floor(seconds / 60);
-  const remSeconds = seconds % 60;
-  return `${minutes}m ${remSeconds}s`;
-}
-
-async function buildSessionJourneyViewModel(selectedSessionId) {
-  const [sessionRows] = await pool.query(
-    `SELECT
-       session_id,
-       COUNT(*) AS event_count,
-       MIN(created_at) AS started_at,
-       MAX(created_at) AS ended_at
-     FROM events
-     WHERE session_id IS NOT NULL
-       AND event_type IN (${SESSION_JOURNEY_EVENT_TYPES.map(() => '?').join(', ')})
-     GROUP BY session_id
-     ORDER BY ended_at DESC
-     LIMIT 25`,
-    SESSION_JOURNEY_EVENT_TYPES
-  );
-
-  const sessions = sessionRows.map((row) => ({
-    sessionId: row.session_id,
-    shortSessionId: String(row.session_id).slice(0, 14),
-    eventCount: Number(row.event_count || 0),
-    startedAt: row.started_at,
-    endedAt: row.ended_at,
-    duration: formatDurationMs(new Date(row.started_at), new Date(row.ended_at))
-  }));
-
-  const chosenSession = selectedSessionId
-    ? sessions.find((session) => String(session.sessionId) === String(selectedSessionId))
-    : sessions[0] || null;
-
-  if (!chosenSession) {
-    return {
-      sessions,
-      selectedSession: null,
-      summary: null,
-      timeline: []
-    };
-  }
-
-  const [timelineRows] = await pool.query(
-    `SELECT id, session_id, event_type, event_data, created_at
-     FROM events
-     WHERE session_id = ?
-       AND event_type IN (${SESSION_JOURNEY_EVENT_TYPES.map(() => '?').join(', ')})
-     ORDER BY created_at ASC
-     LIMIT 250`,
-    [chosenSession.sessionId, ...SESSION_JOURNEY_EVENT_TYPES]
-  );
-
-  const eventTypeCounts = {
-    activity_click: 0,
-    activity_scroll: 0,
-    activity_idle: 0,
-    activity_leave: 0
-  };
-  const visitedPages = new Set();
-
-  const timeline = timelineRows.map((row, index) => {
-    const parsed = normalizeEventData(row.event_data);
-    const page = parsed.page || parsed.path || 'unknown';
-    const note = parsed.message || parsed.target || parsed.key || '';
-
-    if (eventTypeCounts[row.event_type] !== undefined) {
-      eventTypeCounts[row.event_type] += 1;
-    }
-    visitedPages.add(page);
-
-    return {
-      index: index + 1,
-      createdAt: new Date(row.created_at).toLocaleString(),
-      eventType: row.event_type,
-      page,
-      note: String(note).slice(0, 120)
-    };
-  });
-
-  const summary = {
-    totalEvents: timeline.length,
-    uniquePages: visitedPages.size,
-    clicks: eventTypeCounts.activity_click,
-    scrolls: eventTypeCounts.activity_scroll,
-    idles: eventTypeCounts.activity_idle,
-    leaves: eventTypeCounts.activity_leave,
-    duration: chosenSession.duration,
-    startedAt: chosenSession.startedAt ? new Date(chosenSession.startedAt).toLocaleString() : 'N/A',
-    endedAt: chosenSession.endedAt ? new Date(chosenSession.endedAt).toLocaleString() : 'N/A'
-  };
-
-  return {
-    sessions,
-    selectedSession: chosenSession,
-    summary,
-    timeline
-  };
 }
 
 app.get('/', (req, res) => {
@@ -1226,19 +1107,6 @@ app.get('/reports/platform-health', requireAuth, requireRole('analyst'), require
   } catch (error) {
     console.error('Error loading platform health report:', error);
     return renderServerError(req, res, 'Error loading platform health report');
-  }
-});
-
-app.get('/reports/session-journey', requireAuth, requireRole('analyst'), requireSectionAccess('behavior'), async (req, res) => {
-  try {
-    const selectedSessionId = String(req.query.session_id || '').trim() || null;
-    const journey = await buildSessionJourneyViewModel(selectedSessionId);
-    return res.render('session_journey', {
-      journey
-    });
-  } catch (error) {
-    console.error('Error loading session journey:', error);
-    return renderServerError(req, res, 'Error loading session journey report');
   }
 });
 
