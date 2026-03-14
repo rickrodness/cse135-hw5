@@ -897,6 +897,7 @@ async function generatePdfFromHtml(html, filePath) {
   const browser = await puppeteer.launch({
     headless: true,
     userDataDir: chromeUserDataDir,
+    ignoreDefaultArgs: ['--enable-crash-reporter'],
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
